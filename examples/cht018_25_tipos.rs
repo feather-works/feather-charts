@@ -34,7 +34,7 @@ fn entrada(tipo: TipoGrafico) -> Entrada {
         ],
     };
     Entrada {
-        titulo:format!("FeatherOffice: {}",tipo.id()),
+        titulo:format!("FeatherWorks: {}",tipo.id()),
         categorias,
         series,
         x_values:Some((1..=12).map(f64::from).collect()),
@@ -45,7 +45,7 @@ fn main() -> Result<(),Box<dyn Error>> {
     let dir=std::env::args_os().nth(1).map(PathBuf::from)
         .unwrap_or_else(||PathBuf::from("/tmp/cht018-25-tipos"));
     std::fs::create_dir_all(&dir)?;
-    let mut html=String::from("<!doctype html><html lang='pt-br'><meta charset='utf-8'><title>FeatherOffice Charts 25 tipos</title><style>body{font-family:sans-serif;background:#f3f4f6}main{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px}figure{padding:10px;background:white;border-radius:8px;margin:0}img{width:100%}</style><h1>Charts Rust — 25 tipos</h1><main>");
+    let mut html=String::from("<!doctype html><html lang='pt-br'><meta charset='utf-8'><title>FeatherWorks Charts 25 tipos</title><style>body{font-family:sans-serif;background:#f3f4f6}main{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px}figure{padding:10px;background:white;border-radius:8px;margin:0}img{width:100%}</style><h1>Charts Rust — 25 tipos</h1><main>");
     for tipo in TipoGrafico::TODOS {
         let entrada=entrada(tipo);
         let svg=renderizar_svg(tipo,&entrada,640.,380.)

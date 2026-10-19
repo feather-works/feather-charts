@@ -1,6 +1,6 @@
 # feather-charts
 
-Motor de gráficos **100% Rust** da suíte **FeatherOffice**: o mesmo gráfico
+Motor de gráficos **100% Rust** da suíte **FeatherWorks**: o mesmo gráfico
 no FeatherSheet (gráfico solto na planilha), no FeatherDocs (gráfico no texto)
 e no FeatherSlide (gráfico no slide), com a mesma geometria, a mesma aparência
 e a mesma exportação.
@@ -8,14 +8,14 @@ e a mesma exportação.
 É uma **biblioteca**, não um aplicativo e **não tem interface Iced**: cada
 aplicativo desenha o resultado do jeito que sabe. A `feather-charts` recebe
 dados já prontos, calcula a geometria e entrega uma `Cena` do
-[`feather-draw`](https://github.com/FeatherOffice/feather-draw), que sai em **tela**, **SVG** e **PDF** a partir
+[`feather-draw`](https://github.com/feather-works/feather-draw), que sai em **tela**, **SVG** e **PDF** a partir
 das mesmas formas.
 
 > **Estado do documento.** Este README é a **especificação de suporte**: lista
 > todos os gráficos e todas as formas de personalização que a biblioteca vai
 > ter. A meta é **100% personalizável**: nada de aparência fixa dentro do
 > motor. Cada item traz o estado real do código deste repositório (extraído
-> em 14/10/2026 do monorepo FeatherOffice, onde se chamava `featheroffice-charts`).
+> em 14/10/2026 do monorepo FeatherWorks, onde se chamava `featheroffice-charts`).
 >
 > | Marca | Significado |
 > |---|---|
@@ -508,7 +508,7 @@ Eixo X (categorias ou valores), Y (valores), Y secundário, X secundário e Z
 | Propriedade | Opções | Estado |
 |---|---|---|
 | Paleta própria da série (lista cíclica) | | Pronto |
-| Paleta da suíte FeatherOffice | acentos oficiais, claro e escuro | Parcial (cada app injeta a sua: ex. `CORES_SLIDE`) |
+| Paleta da suíte FeatherWorks | acentos oficiais, claro e escuro | Parcial (cada app injeta a sua: ex. `CORES_SLIDE`) |
 | Paletas acessíveis a daltonismo | proteranopia, deuteranopia, tritanopia (Okabe-Ito, Viridis) | Planejado |
 | Paletas sequenciais, divergentes e qualitativas | para heatmap e mapa | Planejado |
 | Paleta do usuário salva | nome, cores, ordem | Planejado |
@@ -729,7 +729,7 @@ Planejado:
 Quando o tipo não tem equivalente nativo (ver coluna **OOXML** do catálogo),
 a exportação grava uma **imagem vetorial** (SVG, ou grupo de formas) e uma
 **cópia dos dados** em parte própria do pacote. Assim o arquivo abre no
-Office mostrando o desenho certo, e o FeatherOffice continua a poder editá-lo.
+Office mostrando o desenho certo, e o FeatherWorks continua a poder editá-lo.
 A leitura de gráficos do Office desconhecidos nunca descarta o XML original:
 guarda a parte intacta e mostra uma imagem de reserva.
 
@@ -741,7 +741,7 @@ No `Cargo.toml` do aplicativo (por tag, no estilo do `feather-ui`):
 
 ```toml
 [dependencies]
-feather-charts = { git = "https://github.com/FeatherOffice/feather-charts", tag = "v0.3.1" }
+feather-charts = { git = "https://github.com/feather-works/feather-charts", tag = "v0.3.1" }
 ```
 
 Enquanto o crate não for extraído, o nome em uso no monorepo é
@@ -749,7 +749,7 @@ Enquanto o crate não for extraído, o nome em uso no monorepo é
 desenvolver a biblioteca e o aplicativo lado a lado:
 
 ```toml
-[patch."https://github.com/FeatherOffice/feather-charts"]
+[patch."https://github.com/feather-works/feather-charts"]
 feather-charts = { path = "../feather-charts" }
 ```
 

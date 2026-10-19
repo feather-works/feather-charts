@@ -3,7 +3,7 @@
 //! NÃO altera dados de origem, fórmulas, filtros ou agregações: retorna
 //! somente índices a serem usados pelo renderizador de linhas.
 //! O eixo X é o índice ordenado da categoria, mantendo o significado
-//! temporal/ordinal do gráfico de linhas do FeatherOffice.
+//! temporal/ordinal do gráfico de linhas do FeatherWorks.
 
 /// Falhas de entrada no downsampling de visualização.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

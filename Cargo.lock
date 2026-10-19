@@ -4,7 +4,7 @@ version = 3
 
 [[package]]
 name = "feather-charts"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "feather-draw",
  "serde",
@@ -14,7 +14,7 @@ dependencies = [
 [[package]]
 name = "feather-draw"
 version = "0.1.1"
-source = "git+https://github.com/FeatherOffice/feather-draw?tag=v0.1.1#17404b4dad3cec398967d948d858ab46eed57d08"
+source = "git+https://github.com/feather-works/feather-draw?tag=v0.1.1#17404b4dad3cec398967d948d858ab46eed57d08"
 
 [[package]]
 name = "itoa"
