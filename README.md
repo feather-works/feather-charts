@@ -852,6 +852,6 @@ Regras para contribuir:
 
 ## Licença
 
-GPL-3.0 (ver `LICENSE`). Paletas acessíveis (Okabe-Ito, Viridis) são de
+MIT (ver `LICENSE`). Paletas acessíveis (Okabe-Ito, Viridis) são de
 domínio público ou licença permissiva e terão a atribuição em
 `dados/PALETAS-LICENSE.txt` quando entrarem.
