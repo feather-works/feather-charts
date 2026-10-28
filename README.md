@@ -158,7 +158,7 @@ Legenda da última coluna (**OOXML**): como o tipo é gravado em `.xlsx`,
 | Id | Gráfico (pt-BR) | Inglês | Variantes | Estado | OOXML |
 |---|---|---|---|---|---|
 | T36 | Pizza | Pie | rótulos com texto reduzido, fatias nulas sem área, valores muito grandes | Pronto | nativo `c:pieChart` |
-| T37 | Rosca | Doughnut | furo configurável, várias anéis (uma série por anel), texto no centro | Parcial (furo pela `EstiloPizza::espessura_anel`; um anel só, sem texto no centro) | nativo `c:doughnutChart` |
+| T37 | Rosca | Doughnut | furo configurável, várias anéis (uma série por anel), texto no centro | Parcial (furo e um anel por série; sem texto no centro) | nativo `c:doughnutChart` |
 | T38 | Pizza explodida | Exploded pie | fatia afastada, todas ou uma só | Pronto (`EstiloPizza::explodir` por fatia e `explodir_todas`) | nativo (`c:explosion`) |
 | T39 | Pizza 3D | 3-D pie | inclinação e rotação | Planejado | nativo `c:pie3DChart` |
 | T40 | Pizza de pizza | Pie of pie | fatias pequenas viram uma segunda pizza | Planejado | nativo `c:ofPieChart` (`ofPieType=pie`) |

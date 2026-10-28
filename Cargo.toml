@@ -1,6 +1,6 @@
 [package]
 name = "feather-charts"
-version = "0.3.2"
+version = "0.3.3"
 description = "Motor de gráficos da suíte FeatherWorks: dados, geometria, eixos, 25 tipos de gráfico, estilos visuais e temáticas, interação e saída em cena vetorial, SVG e PDF"
 authors = ["FeatherWorks"]
 edition = "2021"
