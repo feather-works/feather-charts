@@ -99,6 +99,23 @@ pub enum ErroGrafico {
 }
 
 impl Grafico {
+    /// A pizza de [`Grafico::validar`] com várias séries (um anel cada), para a rosca.
+    pub(crate) fn validar_rosca(&self) -> Result<(), ErroGrafico> {
+        if self.categorias.is_empty() || self.series.is_empty() {
+            return Err(ErroGrafico::SemDados);
+        }
+        if self.series.iter().any(|s| s.valores.len() != self.categorias.len()) {
+            return Err(ErroGrafico::TamanhosDiferentes);
+        }
+        let valores = || self.series.iter().flat_map(|s| s.valores.iter());
+        if valores().any(|v| !v.is_finite() || *v < 0.0) {
+            return Err(ErroGrafico::ValorInvalido);
+        }
+        if !valores().any(|v| *v > 0.0) {
+            return Err(ErroGrafico::SemDados);
+        }
+        Ok(())
+    }
     pub fn validar(&self) -> Result<(), ErroGrafico> {
         if self.categorias.is_empty() || self.series.is_empty() {
             return Err(ErroGrafico::SemDados);

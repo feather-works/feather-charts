@@ -216,7 +216,8 @@ pub enum FormaAlvo {
     /// Marcador de linha/dispersão: centro e raio de toque.
     Circulo { x: f32, y: f32, raio: f32 },
     /// Fatia de pizza: centro, raio e ângulos (radianos, horário a partir do eixo X).
-    Fatia { x: f32, y: f32, raio: f32, inicio: f32, fim: f32 },
+    /// Na rosca, `raio_interno` é a borda de dentro do anel (0 na pizza).
+    Fatia { x: f32, y: f32, raio_interno: f32, raio: f32, inicio: f32, fim: f32 },
 }
 impl FormaAlvo {
     fn contem(&self, px: f32, py: f32) -> bool {
@@ -227,9 +228,10 @@ impl FormaAlvo {
                 px >= x - mx && px <= x + largura + mx && py >= y - my && py <= y + altura + my
             }
             Self::Circulo { x, y, raio } => (px - x).powi(2) + (py - y).powi(2) <= raio * raio,
-            Self::Fatia { x, y, raio, inicio, fim } => {
+            Self::Fatia { x, y, raio_interno, raio, inicio, fim } => {
                 let (dx, dy) = (px - x, py - y);
-                if dx * dx + dy * dy > raio * raio {
+                let d2 = dx * dx + dy * dy;
+                if d2 > raio * raio || d2 < raio_interno * raio_interno {
                     return false;
                 }
                 let tau = std::f32::consts::TAU;
@@ -611,7 +613,11 @@ impl Grafico {
     }
 
     fn desenhar_com(&self, largura: f32, altura: f32, e: &EstiloGrafico, avancado: Option<&PedidoAvancado>) -> Result<(String, MapaGrafico), ErroGrafico> {
-        self.validar()?;
+        if self.tipo == Tipo::Pizza && e.rosca.is_some() {
+            self.validar_rosca()?;
+        } else {
+            self.validar()?;
+        }
         if !largura.is_finite() || !altura.is_finite() || largura < 20.0 || altura < 20.0 {
             return Err(ErroGrafico::EixoInvalido);
         }
@@ -821,14 +827,30 @@ impl Grafico {
         }
         let (cx, cy) = (area.x + area.w / 2.0, area.y + area.h / 2.0);
         let raio = (area.w.min(area.h) / 2.0 * 0.9).max(2.0);
-        let valores = &self.series[0].valores;
+        // Rosca: um anel por série, a primeira por dentro (como no Excel).
+        let furo = e.rosca.filter(|f| f.is_finite()).map_or(0.0, |f| f.clamp(0.0, 0.9)) * raio;
+        let aneis = if furo > 0.0 { self.series.len() } else { 1 };
+        let espessura = (raio - furo) / aneis as f32;
+        for s in 0..aneis {
+            let r_in = furo + espessura * s as f32;
+            self.desenhar_anel(d, r, s, (cx, cy), (r_in, r_in + espessura), s + 1 == aneis);
+        }
+    }
+
+    /// Um anel da série `s` (`r_in` = 0: a pizza inteira). `externo`: o anel
+    /// de fora, o único que pode pôr rótulo do lado de fora.
+    fn desenhar_anel(&self, d: &mut Desenho, r: &Resolvido<'_>, s: usize, (cx, cy): (f32, f32), (r_in, raio): (f32, f32), externo: bool) {
+        let e = r.e;
+        let valores = &self.series[s].valores;
         let soma: f64 = valores.iter().enumerate().filter(|(i, v)| **v > 0.0 && r.ativo(*i)).map(|(_, v)| *v).sum();
-        let estilo = e.serie(0);
+        let estilo = e.serie(s);
         let contorno = estilo.and_then(|s| s.contorno).map(|c| c.0);
         let esp_contorno = estilo.and_then(|s| s.espessura_contorno).unwrap_or(1.0);
-        let rot = r.rotulos_da_serie(0);
+        let rot = r.rotulos_da_serie(s);
         let f_rot = Fonte::de(&r.base, &rot.fonte, 1.0);
         let mostra = rot.visivel.unwrap_or(true);
+        // Com vários anéis o nome da categoria repetiria em cada um: só se pedido.
+        let categoria_padrao = r_in <= 0.0 || self.series.len() == 1;
         let mut ang = -std::f32::consts::FRAC_PI_2;
         for (i, &v) in valores.iter().enumerate() {
             if v <= 0.0 || soma <= 0.0 || !r.ativo(i) {
@@ -842,23 +864,39 @@ impl Grafico {
             let ponto = estilo.and_then(|s| s.pontos.get(&i));
             let des = ponto.and_then(|p| p.destacar).unwrap_or(0.0).clamp(0.0, raio);
             let (ox, oy) = (cx + des * meio.cos(), cy + des * meio.sin());
-            let cor = r.cor_ponto(self, 0, i);
-            d.mapa.pontos.push(AlvoPonto { serie: 0, ponto: i, forma: FormaAlvo::Fatia { x: ox, y: oy, raio, inicio: a0, fim: a1 } });
+            let cor = r.cor_ponto(self, s, i);
+            d.mapa.pontos.push(AlvoPonto { serie: s, ponto: i, forma: FormaAlvo::Fatia { x: ox, y: oy, raio_interno: r_in, raio, inicio: a0, fim: a1 } });
             let traco = ponto.and_then(|p| p.contorno).map(|c| c.0).or(contorno)
                 .map_or_else(String::new, |c| format!(" {}", tracar(c, esp_contorno, Traco::Continuo)));
-            if frac >= 0.9999 {
-                let _ = writeln!(d.corpo, "<circle class=\"fatia\" cx=\"{ox:.2}\" cy=\"{oy:.2}\" r=\"{raio:.2}\" {}{traco}/>", preencher(cor));
-            } else {
-                let grande = u8::from(arco > std::f32::consts::PI);
+            let p = |rr: f32, a: f32| (ox + rr * a.cos(), oy + rr * a.sin());
+            let grande = u8::from(arco > std::f32::consts::PI);
+            let ((x0, y0), (x1, y1)) = (p(raio, a0), p(raio, a1));
+            if frac >= 0.9999 && r_in > 0.0 {
+                // Anel inteiro: dois círculos, e o de dentro vaza (evenodd).
                 let _ = writeln!(
                     d.corpo,
-                    "<path class=\"fatia\" d=\"M{ox:.2} {oy:.2} L{:.2} {:.2} A{raio:.2} {raio:.2} 0 {grande} 1 {:.2} {:.2} Z\" {}{traco}/>",
-                    ox + raio * a0.cos(), oy + raio * a0.sin(), ox + raio * a1.cos(), oy + raio * a1.sin(), preencher(cor)
+                    "<path class=\"fatia\" fill-rule=\"evenodd\" d=\"M{:.2} {oy:.2} A{raio:.2} {raio:.2} 0 1 1 {:.2} {oy:.2} A{raio:.2} {raio:.2} 0 1 1 {:.2} {oy:.2} Z M{:.2} {oy:.2} A{r_in:.2} {r_in:.2} 0 1 0 {:.2} {oy:.2} A{r_in:.2} {r_in:.2} 0 1 0 {:.2} {oy:.2} Z\" {}{traco}/>",
+                    ox + raio, ox - raio, ox + raio, ox + r_in, ox - r_in, ox + r_in, preencher(cor)
+                );
+            } else if frac >= 0.9999 {
+                let _ = writeln!(d.corpo, "<circle class=\"fatia\" cx=\"{ox:.2}\" cy=\"{oy:.2}\" r=\"{raio:.2}\" {}{traco}/>", preencher(cor));
+            } else if r_in > 0.0 {
+                let ((x2, y2), (x3, y3)) = (p(r_in, a1), p(r_in, a0));
+                let _ = writeln!(
+                    d.corpo,
+                    "<path class=\"fatia\" d=\"M{x0:.2} {y0:.2} A{raio:.2} {raio:.2} 0 {grande} 1 {x1:.2} {y1:.2} L{x2:.2} {y2:.2} A{r_in:.2} {r_in:.2} 0 {grande} 0 {x3:.2} {y3:.2} Z\" {}{traco}/>",
+                    preencher(cor)
+                );
+            } else {
+                let _ = writeln!(
+                    d.corpo,
+                    "<path class=\"fatia\" d=\"M{ox:.2} {oy:.2} L{x0:.2} {y0:.2} A{raio:.2} {raio:.2} 0 {grande} 1 {x1:.2} {y1:.2} Z\" {}{traco}/>",
+                    preencher(cor)
                 );
             }
             if mostra {
                 let mut partes = Vec::new();
-                if rot.categoria.unwrap_or(true) {
+                if rot.categoria.unwrap_or(categoria_padrao) {
                     partes.push(self.categorias[i].clone());
                 }
                 if rot.valor.unwrap_or(false) {
@@ -868,18 +906,25 @@ impl Grafico {
                     partes.push(formatar(f64::from(frac), FormatoNum::Percentual { casas: 1 }, 1));
                 }
                 let texto = partes.join("; ");
+                // Na rosca, só o anel de fora põe rótulo fora; os outros ficam no meio do anel.
                 let fora = match rot.posicao.unwrap_or_default() {
+                    _ if r_in > 0.0 && !externo => false,
                     PosicaoRotulo::ForaFim => true,
                     PosicaoRotulo::Centro | PosicaoRotulo::DentroFim | PosicaoRotulo::DentroBase => false,
                     _ => frac < 0.07,
                 };
-                let k = match rot.posicao.unwrap_or_default() {
-                    PosicaoRotulo::Centro => 0.5,
-                    PosicaoRotulo::DentroBase => 0.35,
-                    _ if fora => 1.12,
-                    _ => 0.65,
+                let dist = if fora {
+                    raio * 1.12
+                } else if r_in > 0.0 {
+                    (r_in + raio) / 2.0
+                } else {
+                    raio * match rot.posicao.unwrap_or_default() {
+                        PosicaoRotulo::Centro => 0.5,
+                        PosicaoRotulo::DentroBase => 0.35,
+                        _ => 0.65,
+                    }
                 };
-                let (lx, ly) = (ox + raio * k * meio.cos(), oy + raio * k * meio.sin());
+                let (lx, ly) = p(dist, meio);
                 let ancora = if !fora { Ancora::Meio } else if meio.cos() >= 0.0 { Ancora::Inicio } else { Ancora::Fim };
                 d.texto(lx, ly + f_rot.tamanho * 0.35, &texto, &f_rot, ancora, 0.0, "rotulo");
             }
@@ -1696,9 +1741,10 @@ mod testes {
                 let (x, y) = match alvo.forma {
                     FormaAlvo::Retangulo { x, y, largura, altura } => (x + largura / 2.0, y + altura / 2.0),
                     FormaAlvo::Circulo { x, y, .. } => (x, y),
-                    FormaAlvo::Fatia { x, y, raio, inicio, fim } => {
+                    FormaAlvo::Fatia { x, y, raio_interno, raio, inicio, fim } => {
                         let m = (inicio + fim) / 2.0;
-                        (x + raio * 0.5 * m.cos(), y + raio * 0.5 * m.sin())
+                        let rr = (raio_interno + raio) * 0.5;
+                        (x + rr * m.cos(), y + rr * m.sin())
                     }
                 };
                 let achado = mapa.ponto_em(x, y).unwrap();
@@ -1740,6 +1786,45 @@ mod testes {
         let svg = p.exportar_svg_formatado(400.0, 300.0, &e).unwrap();
         assert!(svg.lines().filter(|l| l.contains("class=\"fatia\"")).nth(2).unwrap().contains("#111111"));
         assert!(svg.contains(">50,0%</text>"));
+    }
+
+    #[test]
+    fn rosca_com_furo_e_um_anel_por_serie() {
+        let e = EstiloGrafico { rosca: Some(0.5), ..Default::default() };
+        // Uma série: anel só, rótulos da categoria; o furo não é clicável.
+        let mut uma = g(Tipo::Pizza);
+        uma.series.truncate(1);
+        let (svg, mapa) = uma.exportar_svg_formatado_com_mapa(400.0, 300.0, &e).unwrap();
+        assert_eq!(svg.matches("class=\"fatia\"").count(), 3);
+        assert!(svg.contains(">Jan</text>"));
+        let FormaAlvo::Fatia { x, y, raio_interno, raio, .. } = mapa.pontos[0].forma else { panic!("fatia") };
+        assert!((raio_interno / raio - 0.5).abs() < 1e-3);
+        assert!(mapa.ponto_em(x, y).is_none(), "o centro é o furo");
+        // Duas séries: dois anéis (a 1ª por dentro), sem repetir a categoria.
+        let duas = g(Tipo::Pizza);
+        assert!(duas.exportar_svg_formatado(400.0, 300.0, &EstiloGrafico::default()).is_err(), "pizza continua com uma série");
+        let (svg, mapa) = duas.exportar_svg_formatado_com_mapa(400.0, 300.0, &e).unwrap();
+        assert_eq!(svg.matches("class=\"fatia\"").count(), 6);
+        assert!(!svg.contains("class=\"rotulo\""), "sem repetir a categoria em cada anel");
+        let raios = |s: usize| mapa.pontos.iter().find_map(|a| match a.forma {
+            FormaAlvo::Fatia { raio_interno, raio, .. } if a.serie == s => Some((raio_interno, raio)),
+            _ => None,
+        }).unwrap();
+        let ((i0, f0), (i1, f1)) = (raios(0), raios(1));
+        assert!(i0 < f0 && (f0 - i1).abs() < 1e-3 && i1 < f1, "anéis encostados, a série 0 por dentro");
+        for alvo in &mapa.pontos {
+            let FormaAlvo::Fatia { x, y, raio_interno, raio, inicio, fim } = alvo.forma else { panic!() };
+            let (m, rr) = ((inicio + fim) / 2.0, (raio_interno + raio) / 2.0);
+            let achado = mapa.ponto_em(x + rr * m.cos(), y + rr * m.sin()).unwrap();
+            assert_eq!((achado.serie, achado.ponto), (alvo.serie, alvo.ponto));
+        }
+        // Um valor só: anel inteiro com o furo vazado.
+        let mut cheia = g(Tipo::Pizza);
+        cheia.series.truncate(1);
+        cheia.series[0].valores = vec![0.0, 7.0, 0.0];
+        let svg = cheia.exportar_svg_formatado(400.0, 300.0, &e).unwrap();
+        assert!(svg.contains("fill-rule=\"evenodd\""));
+        assert!(!EstiloGrafico { rosca: Some(1.5), ..Default::default() }.valido());
     }
 
     #[test]

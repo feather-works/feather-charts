@@ -538,6 +538,11 @@ pub struct EstiloGrafico {
     /// do tipo do gráfico na hora de desenhar; não é gravado.
     #[serde(skip)]
     pub degraus: bool,
+    /// Rosca: fração do raio ocupada pelo furo (o `holeSize` do Excel ÷ 100,
+    /// de 0,1 a 0,9). `None` = pizza cheia. Na rosca cada série é um anel,
+    /// a primeira por dentro, como no Excel.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rosca: Option<f32>,
     /// Descrição para leitores de tela (vai no `<title>`/`<desc>` do SVG).
     pub texto_alternativo: String,
     /// Dica do mouse.
@@ -582,6 +587,7 @@ impl EstiloGrafico {
         let m = |m: &Margens| pos(m.superior) && pos(m.inferior) && pos(m.esquerda) && pos(m.direita);
         eixo_ok(&self.eixo_x) && eixo_ok(&self.eixo_y) && eixo_ok(&self.eixo_y2)
             && m(&self.margens_grafico) && m(&self.margens_plotagem)
+            && self.rosca.map_or(true, |f| f.is_finite() && (0.0..1.0).contains(&f))
             && self.series.values().all(|s| pos(s.espessura_linha) && pos(s.espessura_contorno)
                 && pos(s.tamanho_marcador) && s.opacidade.map_or(true, |o| (0.0..=1.0).contains(&o)))
     }
