@@ -104,9 +104,16 @@ pub(crate) fn rotulos_dados(
             lado.sort_by(|a, b| a.1.total_cmp(&b.1));
             let mut proximo = f32::NEG_INFINITY;
             for (_, y, borda, cotovelo, t) in lado {
-                let y = y.max(proximo);
+                // O texto não sai do quadro do gráfico (antes, "Restauração Florestal"
+                // à esquerda de uma rosca estreita saía cortado): encosta na borda.
+                let y = y.max(proximo).clamp(ts, (d.cena.altura - ts * 0.5).max(ts));
                 proximo = y + ts * 1.25;
-                let fim_x = if direita { cotovelo.x + 10.0 } else { cotovelo.x - 10.0 };
+                let w = crate::moldura::largura_texto(t, ts);
+                let fim_x = if direita {
+                    (cotovelo.x + 10.0).min(d.cena.largura - w - 5.0)
+                } else {
+                    (cotovelo.x - 10.0).max(w + 5.0)
+                };
                 if r.linha_guia {
                     let guia = Cor::rgba(cor_texto.r, cor_texto.g, cor_texto.b, 150);
                     cena.adicionar(Figura::Polilinha {
