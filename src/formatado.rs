@@ -513,7 +513,10 @@ impl Resolvido<'_> {
     fn cor_ponto(&self, g: &Grafico, serie: usize, ponto: usize) -> Cor {
         let s = self.e.serie(serie);
         let op = s.and_then(|s| s.opacidade).unwrap_or(1.0);
-        match s.and_then(|s| s.pontos.get(&ponto)).and_then(|p| p.cor) {
+        // Na rosca a cor da fatia vale para todos os anéis: a da 1ª série, se o anel não tiver a sua.
+        let pintado = |i: usize| self.e.serie(i).and_then(|s| s.pontos.get(&ponto)).and_then(|p| p.cor);
+        let cor = pintado(serie).or_else(|| if g.tipo == Tipo::Pizza { pintado(0) } else { None });
+        match cor {
             Some(c) => com_alfa(c.0, op),
             None if g.tipo == Tipo::Pizza => {
                 let c = self.tema.map_or(PIZZA_PADRAO[ponto % PIZZA_PADRAO.len()], |t| t.paleta[ponto % t.paleta.len()].0);
@@ -1818,6 +1821,11 @@ mod testes {
             let achado = mapa.ponto_em(x + rr * m.cos(), y + rr * m.sin()).unwrap();
             assert_eq!((achado.serie, achado.ponto), (alvo.serie, alvo.ponto));
         }
+        // A cor da fatia (pintada na 1ª série) vale para os dois anéis.
+        let mut pintada = e.clone();
+        pintada.serie_mut(0).pontos.insert(1, EstiloPonto { cor: Some(CorEstilo::hex(0x111111)), ..Default::default() });
+        let svg = duas.exportar_svg_formatado(400.0, 300.0, &pintada).unwrap();
+        assert_eq!(svg.lines().filter(|l| l.contains("class=\"fatia\"") && l.contains("#111111")).count(), 2);
         // Um valor só: anel inteiro com o furo vazado.
         let mut cheia = g(Tipo::Pizza);
         cheia.series.truncate(1);
