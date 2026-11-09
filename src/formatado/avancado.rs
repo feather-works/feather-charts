@@ -49,11 +49,14 @@ pub struct PedidoAvancado {
     pub x: Option<Vec<f64>>,
     /// Z (tamanho das bolhas, profundidade da linha 3D).
     pub z: Option<Vec<f64>>,
+    /// Gantt: o dia de hoje (no mesmo número das datas, o serial do Excel) e o
+    /// rótulo da linha, na língua do aplicativo. Só vale com [`crate::EstiloGantt`] ligado.
+    pub hoje: Option<(f64, String)>,
 }
 
 impl PedidoAvancado {
     pub fn novo(tipo: TipoAvancado) -> Self {
-        Self { tipo, x: None, z: None }
+        Self { tipo, x: None, z: None, hoje: None }
     }
     pub(super) fn validar(&self, g: &Grafico) -> Result<(), ErroGrafico> {
         let n = g.categorias.len();
@@ -101,7 +104,7 @@ pub(super) fn desenhar(g: &Grafico, d: &mut Desenho, r: &Resolvido<'_>, caixa: R
         TipoAvancado::Radar => radar(g, d, r, caixa),
         TipoAvancado::Bolhas => bolhas(g, d, r, caixa, p),
         TipoAvancado::Velas => velas(g, d, r, caixa),
-        TipoAvancado::Gantt => gantt(g, d, r, caixa),
+        TipoAvancado::Gantt => gantt(g, d, r, caixa, p.hoje.as_ref()),
         TipoAvancado::MapaCalor => mapa_calor(g, d, r, caixa),
         TipoAvancado::Linha3d => linha_3d(g, d, r, caixa, p),
     }
@@ -476,7 +479,7 @@ fn velas(g: &Grafico, d: &mut Desenho, r: &Resolvido<'_>, caixa: Ret) {
     });
 }
 
-fn gantt(g: &Grafico, d: &mut Desenho, r: &Resolvido<'_>, caixa: Ret) {
+fn gantt(g: &Grafico, d: &mut Desenho, r: &Resolvido<'_>, caixa: Ret, hoje: Option<&(f64, String)>) {
     let e = r.e;
     let (ini, fim) = (&g.series[0].valores, &g.series[1].valores);
     let n = g.categorias.len();
@@ -509,9 +512,19 @@ fn gantt(g: &Grafico, d: &mut Desenho, r: &Resolvido<'_>, caixa: Ret) {
         d.texto(plot.x - 6.0, plot.y + banda * (i as f32 + 0.5) + f.tamanho * 0.35, &cortar(&g.categorias[i], esq - 8.0, f.tamanho), &f, Ancora::Fim, 0.0, "rotulo-y");
         let (x0, x1) = (xp(ini[i]), xp(fim[i]));
         let w = (x1 - x0).max(2.0);
-        let cor = r.cor_ponto(g, 0, i);
+        let cor = cor_da_tarefa(g, r, i, ini[i], fim[i], hoje.map(|h| h.0));
         let _ = writeln!(d.corpo, "<rect class=\"tarefa p{i}\" x=\"{x0:.2}\" y=\"{y:.2}\" width=\"{w:.2}\" height=\"{bh:.2}\" rx=\"{:.2}\" {}/>", raio.min(bh / 2.0), preencher(cor));
         d.mapa.pontos.push(AlvoPonto { serie: 0, ponto: i, forma: FormaAlvo::Retangulo { x: x0, y, largura: w, altura: bh } });
+    }
+    if let Some((dia, rotulo)) = hoje.filter(|_| e.gantt.linha_hoje) {
+        if (a..=b).contains(dia) {
+            let x = xp(*dia);
+            let cor = e.gantt.cor_hoje.map_or(COR_HOJE, |c| c.0);
+            d.linha(x, plot.y, x, plot.y + plot.h, cor, 1.5, Traco::Tracejado, "hoje");
+            let mut fh = fv.clone();
+            fh.cor = cor;
+            d.texto(x, plot.y - 3.0, rotulo, &fh, Ancora::Meio, 0.0, "rotulo-hoje");
+        }
     }
     // Na dica as datas viram dd/mm/aaaa, e a duração, dias.
     let duracao = if datas { "Duração (dias)" } else { "Duração" };
@@ -524,6 +537,22 @@ fn gantt(g: &Grafico, d: &mut Desenho, r: &Resolvido<'_>, caixa: Ret) {
         ],
         datas: vec![datas, datas, false],
     });
+}
+
+const COR_HOJE: Cor = Cor::rgba(211, 47, 47, 255);
+const COR_CONCLUIDA: Cor = Cor::rgba(67, 160, 71, 255);
+const COR_FUTURA: Cor = Cor::rgba(176, 190, 197, 255);
+
+/// A cor da barra: a pintada à mão vence; depois a da situação (se ligada); senão a da série.
+fn cor_da_tarefa(g: &Grafico, r: &Resolvido<'_>, i: usize, ini: f64, fim: f64, hoje: Option<f64>) -> Cor {
+    let pintada = r.e.serie(0).and_then(|s| s.pontos.get(&i)).is_some_and(|p| p.cor.is_some());
+    let gt = &r.e.gantt;
+    match hoje.filter(|_| gt.pintar_situacao && !pintada) {
+        Some(h) if fim < h => gt.concluida.map_or(COR_CONCLUIDA, |c| c.0),
+        Some(h) if ini > h => gt.futura.map_or(COR_FUTURA, |c| c.0),
+        Some(_) => gt.andamento.map_or_else(|| r.cor_serie(g, 0), |c| c.0),
+        None => r.cor_ponto(g, 0, i),
+    }
 }
 
 fn mapa_calor(g: &Grafico, d: &mut Desenho, r: &Resolvido<'_>, caixa: Ret) {
@@ -692,6 +721,36 @@ mod testes {
         assert_eq!(crate::formatado::data_de_serie(46_000.0), "09/12/2025");
         gt.series[1].valores[0] = 0.0;
         assert!(gt.exportar_svg_avancado_com_mapa(500.0, 300.0, &e, &PedidoAvancado::novo(TipoAvancado::Gantt)).is_err(), "término antes do início");
+    }
+
+    #[test]
+    fn gantt_marca_hoje_e_pinta_pela_situacao() {
+        // #133: concluída (fim < hoje), em andamento e futura; a pintada à mão vence.
+        let mut gt = g(2);
+        gt.categorias.truncate(4);
+        gt.series[0].valores = vec![10.0, 18.0, 25.0, 1.0];
+        gt.series[1].valores = vec![15.0, 22.0, 30.0, 5.0];
+        let mut e = EstiloGrafico::default();
+        let mut p = PedidoAvancado::novo(TipoAvancado::Gantt);
+        p.hoje = Some((20.0, "Hoje".into()));
+        let (sem, _) = gt.exportar_svg_avancado_com_mapa(500.0, 300.0, &e, &p).unwrap();
+        assert!(!sem.contains("class=\"hoje\"") && !sem.contains("#43a047"), "desligado por padrão");
+        e.gantt = crate::EstiloGantt { linha_hoje: true, pintar_situacao: true, ..Default::default() };
+        e.series.entry(0).or_default().pontos.entry(3).or_default().cor = Some(crate::estilo::CorEstilo::rgb(255, 0, 255));
+        let (svg, _) = gt.exportar_svg_avancado_com_mapa(500.0, 300.0, &e, &p).unwrap();
+        assert!(svg.contains("class=\"hoje\"") && svg.contains(">Hoje</text>"), "linha de hoje");
+        let barra = |i: usize| svg.lines().find(|l| l.contains(&format!("tarefa p{i}\""))).unwrap().to_owned();
+        assert!(barra(0).contains("#43a047"), "concluída: {}", barra(0));
+        assert!(barra(2).contains("#b0bec5"), "futura: {}", barra(2));
+        assert!(!barra(1).contains("#43a047") && !barra(1).contains("#b0bec5"), "em andamento: cor da série");
+        assert!(barra(3).contains("#ff00ff"), "pintada à mão vence: {}", barra(3));
+        // Hoje fora do cronograma: sem linha.
+        p.hoje = Some((90.0, "Hoje".into()));
+        let (fora, _) = gt.exportar_svg_avancado_com_mapa(500.0, 300.0, &e, &p).unwrap();
+        assert!(!fora.contains("class=\"hoje\""));
+        // O estilo vai e volta pelo JSON.
+        let json = serde_json::to_string(&e).unwrap();
+        assert_eq!(serde_json::from_str::<EstiloGrafico>(&json).unwrap().gantt, e.gantt);
     }
 
     #[test]

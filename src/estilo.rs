@@ -506,6 +506,30 @@ impl Dica {
     }
 }
 
+/// Gantt: a linha do dia de hoje e as barras pintadas pela situação da
+/// tarefa (concluída: término antes de hoje; em andamento: hoje entre o início
+/// e o término; futura: começa depois). A data de hoje vem no pedido de
+/// desenho ([`crate::formatado::PedidoAvancado::hoje`]): a biblioteca não lê o relógio.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct EstiloGantt {
+    pub linha_hoje: bool,
+    pub pintar_situacao: bool,
+    /// `None` = verde.
+    pub concluida: Option<CorEstilo>,
+    /// `None` = a cor da série.
+    pub andamento: Option<CorEstilo>,
+    /// `None` = cinza.
+    pub futura: Option<CorEstilo>,
+    /// `None` = vermelho.
+    pub cor_hoje: Option<CorEstilo>,
+}
+impl EstiloGantt {
+    pub fn padrao(&self) -> bool {
+        *self == Self::default()
+    }
+}
+
 // ---------------------------------------------------------------- o estilo
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -543,6 +567,8 @@ pub struct EstiloGrafico {
     /// a primeira por dentro, como no Excel.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rosca: Option<f32>,
+    #[serde(skip_serializing_if = "EstiloGantt::padrao")]
+    pub gantt: EstiloGantt,
     /// Descrição para leitores de tela (vai no `<title>`/`<desc>` do SVG).
     pub texto_alternativo: String,
     /// Dica do mouse.

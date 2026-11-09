@@ -33,7 +33,7 @@ mod serde_cor;
 pub use aparencia::{AparenciaGrafico, LayoutGrafico, Marcador};
 // Modelo de estilo serializável do painel "Formatar gráfico" (vindo do featheroffice-charts).
 // `estilo::temas` não é reexportado: na raiz, `temas` são as temáticas de cores.
-pub use estilo::{EstiloGrafico, TemaGrafico};
+pub use estilo::{EstiloGantt, EstiloGrafico, TemaGrafico};
 pub use contrato::{AmostraDados, ContratoGrafico, MetadadosSerie};
 pub use amostragem::{indices_lttb, ErroAmostragem};
 pub use estilos::{Arredondamento, CantosArredondados, GradienteArea, Neon, PapelBarra, RaioBarra, Suavizacao};

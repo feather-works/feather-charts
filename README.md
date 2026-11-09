@@ -230,7 +230,7 @@ Legenda da última coluna (**OOXML**): como o tipo é gravado em `.xlsx`,
 | T81 | Combinado com eixo secundário | Combo with secondary axis | séries em escalas diferentes | Planejado | nativo (dois `c:valAx`) |
 | T82 | Cascata | Waterfall | hoje: incrementos sobre o saldo, verde e vermelho; planejado: totais, subtotais, conectores | Parcial | chartex `layoutId="waterfall"` |
 | T83 | Ponte (bridge) de variação | Variance bridge | do valor inicial ao final por fatores | Planejado | chartex (cascata) |
-| T84 | Gantt (cronograma) | Gantt | hoje: início e fim numéricos; planejado: datas, dependências, marco, progresso, hoje | Parcial | combinação (barras empilhadas com série invisível) |
+| T84 | Gantt (cronograma) | Gantt | hoje: início e fim (número ou data), linha do dia de hoje e cor pela situação (concluída, em andamento, futura; `EstiloGantt`, data em `PedidoAvancado::hoje`), cor por barra; planejado: dependências, marco, % concluído | Parcial | combinação (barras empilhadas com série invisível) |
 | T85 | Mapa de calor | Heatmap | hoje: gradiente azul-vermelho global; planejado: escala configurável, calendário | Parcial | imagem/formas (ou formatação condicional da célula) |
 | T86 | Mapa de calor de calendário | Calendar heatmap | dias do ano em grade semanal | Planejado | imagem/formas |
 | T87 | Quadros pequenos (small multiples) | Small multiples / facets | mesmo gráfico repetido por categoria, escalas compartilhadas | Planejado | imagem/formas |
